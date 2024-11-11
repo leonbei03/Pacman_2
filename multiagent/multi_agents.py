@@ -10,7 +10,7 @@
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
+import sys
 
 from util import manhattan_distance
 from game import Directions, Actions
@@ -70,11 +70,33 @@ class ReflexAgent(Agent):
         successor_game_state = current_game_state.generate_pacman_successor(action)
         new_pos = successor_game_state.get_pacman_position()
         new_food = successor_game_state.get_food()
+        score = successor_game_state.get_score()
         new_ghost_states = successor_game_state.get_ghost_states()
         new_scared_times = [ghostState.scared_timer for ghostState in new_ghost_states]
-        
-        "*** YOUR CODE HERE ***"
-        return successor_game_state.get_score()
+        # Step 1: We first calculate the food score, this score increases if pacman has a smaller distance to food spots
+        food_pos = new_food.as_list()
+        distances = [manhattan_distance(new_pos, food) for food in food_pos]
+        min_distance = min(distances) if distances else 0
+        # The food score is 1 / min distance if there are remaining food spots or
+        # 100 if the pacman eats the last food with this move
+        food_score = 1 / min_distance if min_distance > 0 else 100
+        # Step 2: We calculate the ghost score, the further pacman is away from the ghosts, the better the score
+        # BUT: If a ghost is scared, the distance doesn't matter, the score increases if pacman gets closer to them
+        ghost_distances = [manhattan_distance(new_pos, ghost.get_position()) for ghost in new_ghost_states]
+        ghost_score = 0
+        for idx, dis in enumerate(ghost_distances):
+            if new_scared_times[idx] > 0:
+                ghost_score += 10 / dis if dis > 0 else 1
+            else:  # Active ghost (avoid)
+                ghost_score -= 1 / dis if dis > 0 else 10
+        # Step 3: Finally we create a punishment for still existing food pieces.
+        # Each remaining food influences the score negatively
+        remaining_food = len(food_pos)
+        food_score -= remaining_food
+        # The final score consist of 1. The game score, 2. The ghost score (distance to ghost, scared / not scared)
+        # 3. The food score (distance to food - punishment for remaining food)
+        return score + ghost_score + food_score
+
 
 def score_evaluation_function(current_game_state):
     """
