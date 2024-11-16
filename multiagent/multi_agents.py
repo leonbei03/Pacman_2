@@ -98,6 +98,7 @@ class ReflexAgent(Agent):
         # Each remaining food influences the score negatively
         remaining_food = len(food_pos)
         food_score -= remaining_food
+
         # The final score consist of 1. The game score, 2. The ghost score (distance to ghost, scared / not scared)
         # 3. The food score (distance to food - punishment for remaining food)
         return score + ghost_score + food_score
