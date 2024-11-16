@@ -20,8 +20,10 @@ from game import *
 from itertools import product
 import copy
 
-inf=99999999
-max_depth=2
+inf = 99999999
+max_depth = 2
+
+
 class ReflexAgent(Agent):
     """
     A reflex agent chooses an action at each choice point by examining
@@ -31,7 +33,6 @@ class ReflexAgent(Agent):
     it in any way you see fit, so long as you don't touch our method
     headers.
     """
-
 
     def get_action(self, game_state):
         """
@@ -49,10 +50,10 @@ class ReflexAgent(Agent):
         scores = [self.evaluation_function(game_state, action) for action in legal_moves]
         best_score = max(scores)
         best_indices = [index for index in range(len(scores)) if scores[index] == best_score]
-        chosen_index = random.choice(best_indices) # Pick randomly among the best
+        chosen_index = random.choice(best_indices)  # Pick randomly among the best
 
         "Add more of your code here if you want to"
-        print(legal_moves[chosen_index])
+
         return legal_moves[chosen_index]
 
     def evaluation_function(self, current_game_state, action):
@@ -77,8 +78,7 @@ class ReflexAgent(Agent):
         score = successor_game_state.get_score()
         new_ghost_states = successor_game_state.get_ghost_states()
         new_scared_times = [ghostState.scared_timer for ghostState in new_ghost_states]
-        
-         # Step 1: We first calculate the food score, this score increases if pacman has a smaller distance to food spots
+        # Step 1: We first calculate the food score, this score increases if pacman has a smaller distance to food spots
         food_pos = new_food.as_list()
         distances = [manhattan_distance(new_pos, food) for food in food_pos]
         min_distance = min(distances) if distances else 0
@@ -113,6 +113,7 @@ def score_evaluation_function(current_game_state):
     """
     return current_game_state.get_score()
 
+
 class MultiAgentSearchAgent(Agent):
     """
     This class provides some common elements to all of your
@@ -130,15 +131,16 @@ class MultiAgentSearchAgent(Agent):
 
     def __init__(self, eval_fn='score_evaluation_function', depth='2'):
         super().__init__()
-        self.index = 0 # Pacman is always agent index 0
+        self.index = 0  # Pacman is always agent index 0
         self.evaluation_function = util.lookup(eval_fn, globals())
-        self.depth = int(depth) 
+        self.depth = int(depth)
+
 
 class MinimaxAgent(MultiAgentSearchAgent):
     """
     Your minimax agent (question 2)
     """
-        
+
     def get_action(self, game_state):
         """
         Returns the minimax action from the current game_state using self.depth
@@ -163,59 +165,68 @@ class MinimaxAgent(MultiAgentSearchAgent):
         Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        eval_action = self.get_evaluation_and_action(game_state, 0)
-        print(eval_action)
-        return eval_action[1]
-        
-    def get_evaluation_and_action(self, game_state, current_depth):
-        if current_depth == self.depth or game_state.is_lose() or game_state.is_win():
-            return (self.evaluation_function(game_state)-current_depth+1, 'Stop') 
-        else :
-            # for every legal move that pacman (agent 0) has
-            pacman_moves = game_state.get_legal_actions(0)
-            #print(pacman_moves)
-            max_evaluation = -inf
-            best_action = pacman_moves[0]
-            #print(pacman_moves)
-            # for each legal move of pacman
-            for pacman_move in pacman_moves:
-                min_evaluation = inf
-                all_ghost_moves = []
-                # we take a look at every possible outcome
-                nr_agents= game_state.get_num_agents()
-                for index in range(1, nr_agents):
-                    all_ghost_moves.append(game_state.get_legal_actions(index))
-                    
-                all_combinations_ghost_moves = list(product(*all_ghost_moves))
-                # and we select the one with the lowest evaluation
-                #print(all_combinations_ghost_moves)
-                for combination_ghost_moves in all_combinations_ghost_moves:
-                    new_game_state = copy.deepcopy(game_state) 
-                    
-                    if new_game_state.is_lose() == False or new_game_state.is_win() == False:
-                        new_game_state = new_game_state.generate_successor(0,pacman_move)
 
-                    # check the evaluation for each 
-                    for ghost_index,ghost_move in zip(range(1,nr_agents),combination_ghost_moves):
-                        if new_game_state.is_lose() == False or new_game_state.is_win() == False:
-                            new_game_state = new_game_state.generate_successor(ghost_index,ghost_move)
+        # We need to Traverse our minmax tree, we do this iteratively by setting up a stack
+        initial_depth = 0
+        initial_index = 0
 
-                    #print(new_game_state.get_score())
-                    #print(new_game_state)
-                    new_eval_action = self.get_evaluation_and_action(new_game_state, current_depth+1)
-                    current_evaluation = new_eval_action[0]
-                    #print(current_evaluation)
-                    #return the move that achieves the highest minimum evaluation
-                    if current_evaluation < min_evaluation:
-                        min_evaluation = current_evaluation
-                if max_evaluation < min_evaluation : 
-                    best_action = pacman_move
-                    max_evaluation = min_evaluation
-            eval_and_action = [max_evaluation, best_action]        
-            return eval_and_action
-            
-    
-    
+        def minimax(agent_index, depth, state):
+            # Check if terminal state. game over or max depth
+            if depth == self.depth or game_state.is_lose() or game_state.is_win():
+                return self.evaluation_function(state)
+
+            # If Pacman (MAX) plays:
+            if agent_index == 0:
+                return max_value(depth, state)
+            else:
+                return min_value(agent_index, depth, state)
+
+        def max_value(depth, state):
+            # Initializes max with -inf
+            value = -inf
+            recommended_action = None
+            actions = state.get_legal_actions(0)
+            if not actions:
+                return self.evaluation_function(state)
+
+            for action in actions:
+                state_new = state.generate_successor(0, action)
+                # We now go one level deeper for each agent.
+                # We start by agent 1 and then go through the agents in the min_value function
+                new_value = minimax(1, depth, state_new)
+                if new_value > value:
+                    value = new_value
+                    recommended_action = action
+            # If were at the root, we're finished and can return the action
+            if depth == 0:
+                return recommended_action
+            # If not we return the max_value
+            return value
+
+        def min_value(agent_index, depth, state):
+            # Initializes min with inf
+            value = inf
+
+            number_of_agents = state.get_num_agents()
+            actions = state.get_legal_actions(agent_index)
+
+            if not actions:
+                return self.evaluation_function(state)
+            next_agent = agent_index + 1
+            for action in actions:
+                state_new = state.generate_successor(agent_index, action)
+                if next_agent == number_of_agents:  # Were finished with all agents, now we go one level deeper
+                    new_value = minimax(0, depth + 1, state_new)
+                else:
+                    new_value = minimax(next_agent, depth, state_new)
+                if new_value < value:
+                    value = new_value
+            # Now we have the min value fo the ghosts
+            # As this is the move of the opposite players, we cant be at the root, hence we dont have to return an action
+            return value
+
+        return minimax(initial_index, initial_depth, game_state)
+
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -227,49 +238,80 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         Returns the minimax action using self.depth and self.evaluation_function
         """
         "*** YOUR CODE HERE ***"
-        
-        eval_action = self.get_evaluation_and_action(game_state, alpha, beta)
-        return eval_action[1]
-        util.raise_not_defined()
-        
-    def get_evaluation_and_action(self, game_state, alpha, beta):
-        if self.depth == max_depth or game_state.is_lose() or game_state.is_win():
-            return (self.evaluation, 'Stop') 
-        else :
-            # for every legal move that pacman (agent 0) has
-            pacman_moves = game_state.get_legal_actions(0)
-            #####include the possibility when they are neighbors
-            max_evaluation = -inf
-            # for each legal move of pacman
-            for pacman_move in pacman_moves:
-                min_evaluation = inf
-                all_ghost_moves = []
-                # we take a look at every possible outcome
-                for index in range(1, game_state.get_num_agents()):
-                    all_ghost_moves.append(game_state.get_legal_action(index))
-                all_combinations_ghost_moves = list(product(*all_ghost_moves))
-                # and we select the one with the lowest evaluation
-                for combination_ghost_moves in all_combinations_ghost_moves:
-                    new_game_state = game_state.generate_successor(0,pacman_move)
-                    index = 1
-                    # check the evaluation for each 
-                    for ghost_move in combination_ghost_moves:
-                        new_game_state = new_game_state.generate_successor(index,ghost_move)
-                        index+=1
-                    new_minimax_agent = MinimaxAgent('score_evaluation_function',depth+1)
-                    new_eval_action = new_minimax_agent.get_evaluation_and_action()
-                    current_evaluation = new_eval_action[0]
-                    print(current_evaluation)
-                    #return the move that achieves the highest minimum evaluation
-                    if current_evaluation < min_evaluation:
-                        min_evaluation = current_evaluation
-                if max_evaluation < min_evaluation : 
-                    best_action = pacman_move
-                    max_evaluation = min_evaluation
-            eval_and_action = [max_evaluation, best_action] 
-            
-            return eval_and_action
-    
+        initial_alpha = -inf
+        initial_beta = inf
+        initial_depth = 0
+        initial_index = 0
+
+        def alphabeta(agent_index, depth, state, alpha, beta):
+            # Check if terminal state. game over or max depth
+            if depth == self.depth or game_state.is_lose() or game_state.is_win():
+                return self.evaluation_function(state)
+
+            # If Pacman (MAX) plays:
+            if agent_index == 0:
+                return max_value(depth, state, alpha, beta)
+            else:
+                return min_value(agent_index, depth, state, alpha, beta)
+
+        def max_value(depth, state, alpha, beta):
+            # Node is -inf at first
+            value = -inf
+            recommended_action = None
+            actions = state.get_legal_actions(0)
+            if not actions:
+                return self.evaluation_function(state)
+
+            for action in actions:
+                state_new = state.generate_successor(0, action)
+                # We now go one level deeper for each agent.
+                # We start by agent 1 and then go through the agents in the min_value function
+                new_value = alphabeta(1, depth, state_new, alpha, beta)
+                if new_value > value:
+                    value = new_value
+                    recommended_action = action
+                # If the value is smaller tha alpha, we can prune the coming section of the tree
+                if value > beta:
+                    return value
+                if value > alpha:
+                    alpha = value
+            # If were at the root, we're finished and can return the action
+            if depth == 0:
+                return recommended_action
+            # If not we return the max_value
+            return value
+
+        def min_value(agent_index, depth, state, alpha, beta):
+            # Initializes min with inf
+            value = inf
+            number_of_agents = state.get_num_agents()
+            actions = state.get_legal_actions(agent_index)
+
+            if not actions:
+                return self.evaluation_function(state)
+
+            next_agent = agent_index + 1
+            for action in actions:
+                state_new = state.generate_successor(agent_index, action)
+                if next_agent == number_of_agents:  # Were finished with all agents, now we go one level deeper
+                    new_value = alphabeta(0, depth + 1, state_new, alpha, beta)
+                else:
+                    new_value = alphabeta(next_agent, depth, state_new, alpha, beta)
+                if new_value < value:
+                    value = new_value
+                # If the value is smaller tha alpha, we can prune the coming section of the tree
+                if value < alpha:
+                    return value
+                # If not we update beta
+                if value < beta:
+                    beta = value
+
+            # Now we have the min value fo the ghosts
+            # As this is the move of the opposite players, we cant be at the root, hence we dont have to return an action
+            return value
+
+        return alphabeta(initial_index, initial_depth, game_state, initial_alpha, initial_beta)
+
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
@@ -286,6 +328,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         "*** YOUR CODE HERE ***"
         util.raise_not_defined()
 
+
 def better_evaluation_function(current_game_state):
     """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
@@ -295,7 +338,6 @@ def better_evaluation_function(current_game_state):
     """
     "*** YOUR CODE HERE ***"
     util.raise_not_defined()
-    
 
 
 # Abbreviation
